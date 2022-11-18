@@ -1,0 +1,28 @@
+{
+  "name": "vbe-cluster-map",
+  "description": "React Native Mapview cluster component for Android Native",
+  "main": "index.js",
+  "author": "vbea <vbea@foxmail.com>",
+  "version": "1.0",
+  "scripts": {
+    "lint": "./node_modules/eslint/bin/eslint.js .",
+    "ci": "npm run lint"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vbea/vbe-cluster-map"
+  },
+  "keywords": [
+    "react",
+    "react-native",
+    "react-component",
+    "map",
+    "cluster-map",
+    "google-maps",
+    "vbe-cluster-map"
+  ],
+  "peerDependencies": {
+    "react": ">= 16.0 || < 17.0",
+    "react-native": ">= 0.51"
+  }
+}
