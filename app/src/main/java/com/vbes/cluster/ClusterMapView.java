@@ -1,7 +1,6 @@
 package com.vbes.cluster;
 
 import android.Manifest;
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Point;
@@ -43,14 +42,12 @@ public class ClusterMapView extends MapView implements OnMapReadyCallback {
     private ClusterManager<StationInfo> mClusterManager;
     private final Map<Marker, StationInfo> markerMap = new HashMap<>();
 
+    private Region initRegion;
     private boolean clusterAnimation = true;
     private boolean moveOnMarkerPress = true;
     private boolean showUserLocation = false;
-    //LocationManager locationManager;
-    private Region initRegion;
     private LatLngBounds boundsToMove;
 
-    @SuppressLint("MissingPermission")
     public ClusterMapView(ThemedReactContext reactContext, ReactApplicationContext appContext, ClusterMapManager uiManager, GoogleMapOptions googleMapOptions) {
         super(getNonBuggyContext(reactContext, appContext), googleMapOptions);
         this.manager = uiManager;
@@ -59,8 +56,6 @@ public class ClusterMapView extends MapView implements OnMapReadyCallback {
         super.onCreate(null);
         super.onResume();
         super.getMapAsync(this);
-        //locationManager = (LocationManager)appContext.getSystemService(Context.LOCATION_SERVICE);
-        //String bestProvider = locationManager.getBestProvider(null,true);
 
         /*this.addOnLayoutChangeListener(new OnLayoutChangeListener() {
             @Override public void onLayoutChange(View v, int left, int top, int right, int bottom, int oldLeft, int oldTop, int oldRight, int oldBottom) {
@@ -76,6 +71,7 @@ public class ClusterMapView extends MapView implements OnMapReadyCallback {
         this.map = googleMap;
 
         manager.pushEvent(context, this, "topMapReady", new WritableNativeMap());
+        //manager.sendEvent(context, "onMapReady", new WritableNativeMap());
 
         mClusterManager = new ClusterManager<>(context, map);
         mClusterManager.setRenderer(new MyClusterRender(context, map, mClusterManager));
@@ -89,7 +85,7 @@ public class ClusterMapView extends MapView implements OnMapReadyCallback {
                 }
                 final LatLngBounds bounds = builder.build();
                 try {
-                    map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
+                    map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100), 500, null);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -104,19 +100,22 @@ public class ClusterMapView extends MapView implements OnMapReadyCallback {
                 event.putString("action", "marker-press");
                 event.putInt("id", stationInfo.getId());
                 manager.pushEvent(context, ClusterMapView.this, "topMarkerPress", event);
-                return false;
+                if (moveOnMarkerPress) {
+                    map.animateCamera(CameraUpdateFactory.newLatLng(stationInfo.getPosition()), 300, null);
+                }
+                return true;
             }
         });
-        map.setOnMarkerClickListener(new GoogleMap.OnMarkerClickListener() {
+        /*map.setOnMarkerClickListener(new GoogleMap.OnMarkerClickListener() {
             @Override
             public boolean onMarkerClick(Marker marker) {
-                /*WritableMap event;
+                WritableMap event;
                 StationInfo stationInfo = getMarkerMap(marker);
 
                 event = makeClickEventData(marker.getPosition());
                 event.putString("action", "marker-press");
                 event.putInt("id", stationInfo.getId());
-                manager.pushEvent(context, ClusterMapView.this, "onMarkerPress", event);*/
+                manager.pushEvent(context, ClusterMapView.this, "onMarkerPress", event);
                 // Return false to open the callout info window and center on the marker
                 // https://developers.google.com/android/reference/com/google/android/gms/maps/GoogleMap
                 // .OnMarkerClickListener
@@ -127,16 +126,16 @@ public class ClusterMapView extends MapView implements OnMapReadyCallback {
                     return true;
                 }
             }
-        });
+        });*/
         map.setOnCameraIdleListener(mClusterManager);
         if (initRegion != null) {
             map.moveCamera(CameraUpdateFactory.newLatLngZoom(initRegion.getLocation(), initRegion.getZoom()));
         }
+        map.getUiSettings().setCompassEnabled(true);
+        map.getUiSettings().setMyLocationButtonEnabled(false);
         if (showUserLocation) {
-            map.getUiSettings().setCompassEnabled(true);
-            map.getUiSettings().setMyLocationButtonEnabled(false);
             if (hasPermission(Manifest.permission.ACCESS_FINE_LOCATION) && hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION)) {
-                map.setMyLocationEnabled(true);
+                map.setMyLocationEnabled(showUserLocation);
             }
         }
     }
@@ -157,15 +156,26 @@ public class ClusterMapView extends MapView implements OnMapReadyCallback {
         }
     }
 
+    public void setMoveOnMarkerPress(boolean move) {
+        moveOnMarkerPress = move;
+    }
+
     public void setShowUserLocation(boolean show) {
-        showUserLocation = show;
+        if (showUserLocation != show) {
+            showUserLocation = show;
+            if (map != null) {
+                if (hasPermission(Manifest.permission.ACCESS_FINE_LOCATION) && hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION)) {
+                    map.setMyLocationEnabled(showUserLocation);
+                }
+            }
+        }
     }
 
     public void setRegion(ReadableMap region) {
         if (region == null) return;
         initRegion = new Region(region);
         if (map == null) return;
-
+        
         LatLngBounds bounds = new LatLngBounds(
             new LatLng(initRegion.getLatitude() - initRegion.getLatitudeDelta() / 2, initRegion.getLongitude() - initRegion.getLongitudeDelta() / 2), // southwest
             new LatLng(initRegion.getLatitude() + initRegion.getLatitudeDelta() / 2, initRegion.getLongitude() + initRegion.getLongitudeDelta() / 2)  // northeast
@@ -217,19 +227,17 @@ public class ClusterMapView extends MapView implements OnMapReadyCallback {
 
     public WritableMap makeClickEventData(LatLng point) {
         WritableMap event = new WritableNativeMap();
+        event.putDouble("latitude", point.latitude);
+        event.putDouble("longitude", point.longitude);
 
-        WritableMap coordinate = new WritableNativeMap();
-        coordinate.putDouble("latitude", point.latitude);
-        coordinate.putDouble("longitude", point.longitude);
-        event.putMap("coordinate", coordinate);
-
+        /* 暂时用不上
         Projection projection = map.getProjection();
         Point screenPoint = projection.toScreenLocation(point);
 
         WritableMap position = new WritableNativeMap();
         position.putDouble("x", screenPoint.x);
         position.putDouble("y", screenPoint.y);
-        event.putMap("position", position);
+        event.putMap("position", position);*/
 
         return event;
     }
