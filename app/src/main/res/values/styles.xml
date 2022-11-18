@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="TextAvailable" parent="android:TextAppearance.DeviceDefault">
+        <item name="android:textColor">#ffffff</item>
+    </style>
+    <style name="TextUnavailable" parent="android:TextAppearance.DeviceDefault">
+        <item name="android:textColor">#aaaaaa</item>
+    </style>
+</resources>
